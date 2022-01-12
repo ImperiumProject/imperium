@@ -14,7 +14,7 @@ import (
 func StrategiesCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "strategy [strategy_name]",
-		Short: "Run the scheduler with the specified strategy",
+		Short: "Run Imperium with the specified strategy",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			termCh := util.Term()
