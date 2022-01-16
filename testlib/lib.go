@@ -81,7 +81,6 @@ func (v *VarSet) SetCounter(label string) {
 	v.lock.Lock()
 	defer v.lock.Unlock()
 	counter := NewCounter()
-	counter.Incr()
 	v.vars[label] = counter
 }
 

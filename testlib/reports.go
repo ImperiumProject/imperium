@@ -1,83 +1,78 @@
 package testlib
 
 import (
-	"encoding/json"
-	"fmt"
 	"sync"
 )
 
-type metrics struct {
-	message int
-	event   int
-	lock    *sync.Mutex
+type reportLog struct {
+	ID     uint64            `json:"id"`
+	KeyVal map[string]string `json:"logs"`
 }
 
-func newMetrics() *metrics {
-	return &metrics{
-		message: 0,
-		event:   0,
-		lock:    new(sync.Mutex),
+func (r *reportLog) match(keyvals map[string]string) bool {
+	for k, v := range keyvals {
+		cV, ok := r.KeyVal[k]
+		if ok && cV != v {
+			return false
+		}
+	}
+	return true
+}
+
+type reportStore struct {
+	logs []*reportLog
+	size uint64
+	lock *sync.Mutex
+}
+
+func NewReportStore() *reportStore {
+	return &reportStore{
+		logs: make([]*reportLog, 0),
+		size: 0,
+		lock: new(sync.Mutex),
 	}
 }
 
-func (m *metrics) IncrEvent() {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	m.event += 1
-}
-
-func (m *metrics) IncrMessage() {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	m.message += 1
-}
-
-func (m *metrics) String() string {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	return fmt.Sprintf("{message: %d, event: %d}", m.message, m.event)
-}
-
-type ReportStore struct {
-	metrics map[string]*metrics
-	lock    *sync.Mutex
-}
-
-func NewReportStore() *ReportStore {
-	return &ReportStore{
-		metrics: make(map[string]*metrics),
-		lock:    new(sync.Mutex),
-	}
-}
-
-func (r *ReportStore) NewMessage(testcase string) {
+func (r *reportStore) Log(keyvals map[string]string) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
-	if _, ok := r.metrics[testcase]; !ok {
-		r.metrics[testcase] = newMetrics()
-	}
-	metrics := r.metrics[testcase]
-	metrics.IncrMessage()
+	r.logs = append(r.logs, &reportLog{
+		ID:     r.size,
+		KeyVal: keyvals,
+	})
+	r.size += 1
 }
 
-func (r *ReportStore) NewEvent(testcase string) {
-	r.lock.Lock()
-	defer r.lock.Unlock()
-	if _, ok := r.metrics[testcase]; !ok {
-		r.metrics[testcase] = newMetrics()
+func (r *reportStore) GetLogs(keyvals map[string]string, count int, from int) []*reportLog {
+	if count == -1 {
+		count = 100
 	}
-	metrics := r.metrics[testcase]
-	metrics.IncrEvent()
+	if from == -1 {
+		from = 0
+	}
+
+	if len(keyvals) == 0 {
+		r.lock.Lock()
+		defer r.lock.Unlock()
+		return r.logs[from : from+count]
+	}
+	return r.filter(keyvals, from, count)
 }
 
-func (r *ReportStore) String() string {
-	r.lock.Lock()
-	defer r.lock.Unlock()
+func (r *reportStore) filter(keyvals map[string]string, from int, count int) []*reportLog {
+	resultSize := 0
+	result := make([]*reportLog, 0)
 
-	kv := make(map[string]string)
-	for t, m := range r.metrics {
-		kv[t] = m.String()
+	r.lock.Lock()
+	for i := from; i < len(r.logs); i++ {
+		if resultSize == count {
+			break
+		}
+		if r.logs[i].match(keyvals) {
+			result = append(result, r.logs[i])
+			resultSize += 1
+		}
 	}
-	res, _ := json.Marshal(kv)
-	return string(res)
+	r.lock.Unlock()
+	return result
 }

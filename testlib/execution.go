@@ -37,11 +37,11 @@ func (e *executionState) Unblock() {
 	e.allowEvents = true
 }
 
-func (e *executionState) NewTestCase(ctx *context.RootContext, testcase *TestCase) {
+func (e *executionState) NewTestCase(ctx *context.RootContext, testcase *TestCase, r *reportStore) {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 	e.testcase = testcase
-	e.curCtx = NewContext(ctx, testcase)
+	e.curCtx = newContext(ctx, testcase, r)
 }
 
 func (e *executionState) CurCtx() *Context {
@@ -94,7 +94,7 @@ MainLoop:
 
 		// Setup
 		testcaseLogger.Debug("Setting up testcase")
-		srv.executionState.NewTestCase(srv.ctx, testcase)
+		srv.executionState.NewTestCase(srv.ctx, testcase, srv.reportStore)
 		err := testcase.setup(srv.executionState.CurCtx())
 		if err != nil {
 			testcaseLogger.With(log.LogParams{"error": err}).Error("Error setting up testcase")
@@ -117,7 +117,16 @@ MainLoop:
 	Finalize:
 		// Finalize report
 		testcaseLogger.Info("Finalizing")
-
+		ctx := srv.executionState.CurCtx()
+		if testcase.aborted {
+			testcaseLogger.Info("Testcase was aborted")
+		} else {
+			testcaseLogger.Info("Checking assertion")
+			ok := testcase.assert(ctx)
+			if !ok {
+				testcaseLogger.Info("Testcase failed")
+			}
+		}
 		// TODO: Figure out a way to cleanly clear the message pool
 		// Reset the servers and flush the queues after waiting for some time
 		srv.ctx.Reset()
@@ -126,9 +135,6 @@ MainLoop:
 			break MainLoop
 		}
 	}
-	srv.Logger.With(log.LogParams{
-		"metrics": srv.ReportStore.String(),
-	}).Info("Final metrics")
 	close(srv.doneCh)
 }
 
@@ -142,8 +148,12 @@ func (srv *TestingServer) pollEvents() {
 
 			ctx := srv.executionState.CurCtx()
 			testcase := srv.executionState.CurTestCase()
-			// Gathering metrics
-			srv.ReportStore.NewEvent(testcase.Name)
+			srv.reportStore.Log(map[string]string{
+				"testcase":   testcase.Name,
+				"type":       "event",
+				"replica":    string(e.Replica),
+				"event_type": e.TypeS,
+			})
 
 			testcaseLogger := srv.Logger.With(log.LogParams{"testcase": testcase.Name})
 
@@ -151,13 +161,11 @@ func (srv *TestingServer) pollEvents() {
 			// 1. Add event to context and feed context to testcase
 			ctx.setEvent(e)
 			messages := testcase.step(e, ctx)
-			timeouts := ctx.TimeoutDriver.ToDispatch()
 
 			select {
 			case <-testcase.doneCh:
 			default:
 				go srv.dispatchMessages(ctx, messages)
-				go srv.dispatchTimeouts(timeouts)
 			}
 		case <-srv.QuitCh():
 			return
@@ -168,10 +176,16 @@ func (srv *TestingServer) pollEvents() {
 func (srv *TestingServer) pollMessages() {
 	for {
 		select {
-		case <-srv.messageCh:
+		case m := <-srv.messageCh:
 			testcase := srv.executionState.CurTestCase()
 			// Gathering metrics
-			srv.ReportStore.NewMessage(testcase.Name)
+			srv.reportStore.Log(map[string]string{
+				"testcase": testcase.Name,
+				"type":     "message",
+				"from":     string(m.From),
+				"to":       string(m.To),
+				"message":  m.ParsedMessage.String(),
+			})
 		case <-srv.QuitCh():
 			return
 		}
@@ -184,11 +198,5 @@ func (srv *TestingServer) dispatchMessages(ctx *Context, messages []*types.Messa
 			ctx.MessagePool.Add(m)
 		}
 		srv.dispatcher.DispatchMessage(m)
-	}
-}
-
-func (srv *TestingServer) dispatchTimeouts(timeouts []*types.ReplicaTimeout) {
-	for _, t := range timeouts {
-		srv.dispatcher.DispatchTimeout(t)
 	}
 }

@@ -48,8 +48,8 @@ func (c *HandlerCascade) AddHandler(h HandlerFunc) {
 	c.Handlers = append(c.Handlers, h)
 }
 
-// HandleEvent implements Handler
-func (c *HandlerCascade) HandleEvent(e *types.Event, ctx *Context) []*types.Message {
+// handleEvent implements Handler
+func (c *HandlerCascade) handleEvent(e *types.Event, ctx *Context) []*types.Message {
 	for _, h := range c.Handlers {
 		ret, ok := h(e, ctx)
 		if ok {

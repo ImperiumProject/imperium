@@ -21,30 +21,30 @@ type Context struct {
 	EventDAG *types.EventDAG
 	// Vars is a generic key value store to facilate maintaining auxilliary information
 	// during the execution of a testcase
-	Vars          *VarSet
-	TimeoutDriver *TimeoutDriver
+	Vars *VarSet
 
-	counter  *util.Counter
-	testcase *TestCase
-	sends    map[string]*types.Event
-	lock     *sync.Mutex
-	once     *sync.Once
+	counter     *util.Counter
+	testcase    *TestCase
+	reportStore *reportStore
+	sends       map[string]*types.Event
+	lock        *sync.Mutex
+	once        *sync.Once
 }
 
-// NewContext instantiates a Context from the RootContext
-func NewContext(c *context.RootContext, testcase *TestCase) *Context {
+// newContext instantiates a Context from the RootContext
+func newContext(c *context.RootContext, testcase *TestCase, r *reportStore) *Context {
 	return &Context{
-		MessagePool:   c.MessageStore,
-		Replicas:      c.Replicas,
-		EventDAG:      types.NewEventDag(),
-		Vars:          NewVarSet(),
-		TimeoutDriver: NewTimeoutDriver(c.TimeoutStore),
+		MessagePool: c.MessageStore,
+		Replicas:    c.Replicas,
+		EventDAG:    types.NewEventDag(),
+		Vars:        NewVarSet(),
 
-		counter:  util.NewCounter(),
-		testcase: testcase,
-		sends:    make(map[string]*types.Event),
-		lock:     new(sync.Mutex),
-		once:     new(sync.Once),
+		counter:     util.NewCounter(),
+		reportStore: r,
+		testcase:    testcase,
+		sends:       make(map[string]*types.Event),
+		lock:        new(sync.Mutex),
+		once:        new(sync.Once),
 	}
 }
 
@@ -86,6 +86,11 @@ func (c *Context) GetMessage(e *types.Event) (*types.Message, bool) {
 	return c.MessagePool.Get(mID)
 }
 
+func (c *Context) Log(keyvals map[string]string) {
+	keyvals["testcase"] = c.testcase.Name
+	c.reportStore.Log(keyvals)
+}
+
 func (c *Context) setEvent(e *types.Event) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -107,5 +112,4 @@ func (c *Context) setEvent(e *types.Event) {
 		"parents":  parents,
 	}).Debug("Adding node to DAG")
 	c.EventDAG.AddNode(e, parents)
-	// c.TimeoutDriver.NewEvent(e)
 }

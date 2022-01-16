@@ -16,7 +16,12 @@ type CountWrapper struct {
 func Count(label string) *CountWrapper {
 	return &CountWrapper{
 		CounterFunc: func(_ *types.Event, c *Context) (*Counter, bool) {
-			return c.Vars.GetCounter(label)
+			counter, ok := c.Vars.GetCounter(label)
+			if !ok {
+				c.Vars.SetCounter(label)
+				counter, _ = c.Vars.GetCounter(label)
+			}
+			return counter, true
 		},
 	}
 }
@@ -42,9 +47,11 @@ func CountTo(label string) *CountWrapper {
 			if !ok {
 				return nil, false
 			}
-			counter, ok := c.Vars.GetCounter(fmt.Sprintf("%s_%s", label, message.To))
+			key := fmt.Sprintf("%s_%s", label, message.To)
+			counter, ok := c.Vars.GetCounter(key)
 			if !ok {
-				return nil, false
+				c.Vars.SetCounter(key)
+				counter, _ = c.Vars.GetCounter(key)
 			}
 			return counter, true
 		},
@@ -61,7 +68,12 @@ type SetWrapper struct {
 func Set(label string) *SetWrapper {
 	return &SetWrapper{
 		SetFunc: func(e *types.Event, c *Context) (*types.MessageStore, bool) {
-			return c.Vars.GetMessageSet(label)
+			set, ok := c.Vars.GetMessageSet(label)
+			if !ok {
+				c.Vars.NewMessageSet(label)
+				set, _ = c.Vars.GetMessageSet(label)
+			}
+			return set, true
 		},
 	}
 }

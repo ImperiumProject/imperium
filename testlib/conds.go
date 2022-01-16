@@ -34,6 +34,13 @@ func (c Condition) Not() Condition {
 	}
 }
 
+// IsEventOf returns true if the event if of the specified replica
+func IsEventOf(replica types.ReplicaID) Condition {
+	return func(e *types.Event, c *Context) bool {
+		return e.Replica == replica
+	}
+}
+
 // IsMessageSend condition returns true if the event is a message send event
 func IsMessageSend() Condition {
 	return func(e *types.Event, ctx *Context) bool {

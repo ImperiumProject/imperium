@@ -22,7 +22,7 @@ type TestingServer struct {
 
 	testCases      map[string]*TestCase
 	executionState *executionState
-	ReportStore    *ReportStore
+	reportStore    *reportStore
 	*types.BaseService
 }
 
@@ -42,7 +42,7 @@ func NewTestingServer(config *config.Config, messageParser types.MessageParser, 
 		doneCh:         make(chan string),
 		testCases:      make(map[string]*TestCase),
 		executionState: newExecutionState(),
-		ReportStore:    NewReportStore(),
+		reportStore:    NewReportStore(),
 		BaseService:    types.NewBaseService("TestingServer", log.DefaultLogger),
 	}
 	for _, t := range testcases {

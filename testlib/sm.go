@@ -192,7 +192,12 @@ func (s *StateMachine) step(e *types.Event, c *Context) {
 			if ok {
 				c.Logger().With(log.LogParams{
 					"state": to,
-				}).Info("Testcase transistioned")
+				}).Info("Testcase state machine transition")
+				c.Log(map[string]string{
+					"from_state": state.Label,
+					"to_state":   to,
+					"type":       "state_machine_transition",
+				})
 				s.run.Transition(next)
 				c.Vars.Set("curState", to)
 			}
