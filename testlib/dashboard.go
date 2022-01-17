@@ -52,8 +52,8 @@ func (srv *TestingServer) handleTestCase(c *gin.Context) {
 }
 
 type logRequest struct {
-	Count   int               `form:"count"`
-	From    int               `form:"from"`
+	Count   int               `form:"count,default=-1"`
+	From    int               `form:"from,default=-1"`
 	KeyVals map[string]string `form:"keyvals"`
 }
 

@@ -30,7 +30,7 @@ type Message struct {
 }
 
 // Clone to create a new Message object with the same attributes
-func (m *Message) Clone() Clonable {
+func (m *Message) Clone() *Message {
 	return &Message{
 		From:          m.From,
 		To:            m.To,
@@ -193,7 +193,7 @@ func (q *MessageQueue) dispatchloop() {
 				q.dispatchWG.Add(1)
 				go func(subs chan *Message) {
 					select {
-					case subs <- toAdd.Clone().(*Message):
+					case subs <- toAdd.Clone():
 					case <-q.QuitCh():
 					}
 					q.dispatchWG.Done()

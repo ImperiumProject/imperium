@@ -175,6 +175,9 @@ func (srv *TestingServer) pollEvents() {
 
 func (srv *TestingServer) pollMessages() {
 	for {
+		if !srv.executionState.CanAllowEvents() {
+			continue
+		}
 		select {
 		case m := <-srv.messageCh:
 			testcase := srv.executionState.CurTestCase()
@@ -184,7 +187,7 @@ func (srv *TestingServer) pollMessages() {
 				"type":     "message",
 				"from":     string(m.From),
 				"to":       string(m.To),
-				"message":  m.ParsedMessage.String(),
+				"message":  m.Repr,
 			})
 		case <-srv.QuitCh():
 			return
