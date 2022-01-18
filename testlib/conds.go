@@ -99,6 +99,30 @@ func IsMessageFrom(from types.ReplicaID) Condition {
 	}
 }
 
+// IsMessageFromF works the same as IsMessageFrom but the replica is fetched from the event and context
+func IsMessageFromF(replicaF func(*types.Event, *Context) (types.ReplicaID, bool)) Condition {
+	return func(e *types.Event, c *Context) bool {
+		message, ok := c.GetMessage(e)
+		if !ok {
+			return false
+		}
+		replica, ok := replicaF(e, c)
+		return ok && message.From == replica
+	}
+}
+
+// IsMessageToF works the same as IsMessageTo but the replica is fetched from the event and context
+func IsMessageToF(replicaF func(*types.Event, *Context) (types.ReplicaID, bool)) Condition {
+	return func(e *types.Event, c *Context) bool {
+		message, ok := c.GetMessage(e)
+		if !ok {
+			return false
+		}
+		replica, ok := replicaF(e, c)
+		return ok && message.To == replica
+	}
+}
+
 // LtF condition that returns true if the counter value is less than the specified value.
 // The input is a function that obtains the value dynamically based on the event and context.
 func (c *CountWrapper) LtF(valF func(*types.Event, *Context) (int, bool)) Condition {

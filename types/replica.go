@@ -95,6 +95,7 @@ func (s *ReplicaStore) ResetReady() {
 	}
 }
 
+// Cap returns the set of replicas used for the test
 func (s *ReplicaStore) Cap() int {
 	return s.cap
 }
