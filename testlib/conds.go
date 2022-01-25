@@ -10,20 +10,14 @@ type Condition func(e *types.Event, c *Context) bool
 // And to create boolean conditional expressions
 func (c Condition) And(other Condition) Condition {
 	return func(e *types.Event, ctx *Context) bool {
-		if c(e, ctx) && other(e, ctx) {
-			return true
-		}
-		return false
+		return c(e, ctx) && other(e, ctx)
 	}
 }
 
 // Or to create boolean conditional expressions
 func (c Condition) Or(other Condition) Condition {
 	return func(e *types.Event, ctx *Context) bool {
-		if c(e, ctx) || other(e, ctx) {
-			return true
-		}
-		return false
+		return c(e, ctx) || other(e, ctx)
 	}
 }
 
@@ -271,4 +265,31 @@ func (s *SetWrapper) Contains() Condition {
 		}
 		return set.Exists(message.ID)
 	}
+}
+
+type once struct {
+	done bool
+	c    Condition
+}
+
+func (o *once) check() Condition {
+	return func(e *types.Event, c *Context) bool {
+		if o.done {
+			return false
+		}
+		if o.c(e, c) {
+			o.done = true
+			return true
+		}
+		return false
+	}
+}
+
+// Once is a meta condition that allows the inner condition to be true only once
+func Once(c Condition) Condition {
+	o := &once{
+		done: false,
+		c:    c,
+	}
+	return o.check()
 }

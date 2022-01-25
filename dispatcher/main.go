@@ -167,6 +167,10 @@ func (d *Dispatcher) RestartAll() error {
 }
 
 func (d *Dispatcher) sendDirective(directive *directiveMessage, to *types.Replica) error {
+	d.logger.With(log.LogParams{
+		"action":  directive.Action,
+		"replica": to.ID,
+	}).Info("Dispatching directive!")
 	bytes, err := json.Marshal(directive)
 	if err != nil {
 		return ErrFailedMarshal

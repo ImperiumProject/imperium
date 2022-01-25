@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/ImperiumProject/imperium/context"
+	"github.com/ImperiumProject/imperium/dispatcher"
 	"github.com/ImperiumProject/imperium/log"
 	"github.com/ImperiumProject/imperium/types"
 	"github.com/ImperiumProject/imperium/util"
@@ -24,6 +25,7 @@ type Context struct {
 	Vars *VarSet
 
 	counter     *util.Counter
+	dispatcher  *dispatcher.Dispatcher
 	testcase    *TestCase
 	reportStore *reportStore
 	sends       map[string]*types.Event
@@ -32,7 +34,7 @@ type Context struct {
 }
 
 // newContext instantiates a Context from the RootContext
-func newContext(c *context.RootContext, testcase *TestCase, r *reportStore) *Context {
+func newContext(c *context.RootContext, testcase *TestCase, r *reportStore, d *dispatcher.Dispatcher) *Context {
 	return &Context{
 		MessagePool: c.MessageStore,
 		Replicas:    c.Replicas,
@@ -41,6 +43,7 @@ func newContext(c *context.RootContext, testcase *TestCase, r *reportStore) *Con
 
 		counter:     util.NewCounter(),
 		reportStore: r,
+		dispatcher:  d,
 		testcase:    testcase,
 		sends:       make(map[string]*types.Event),
 		lock:        new(sync.Mutex),

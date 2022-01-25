@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ImperiumProject/imperium/context"
+	"github.com/ImperiumProject/imperium/dispatcher"
 	"github.com/ImperiumProject/imperium/log"
 	"github.com/ImperiumProject/imperium/types"
 )
@@ -37,11 +38,16 @@ func (e *executionState) Unblock() {
 	e.allowEvents = true
 }
 
-func (e *executionState) NewTestCase(ctx *context.RootContext, testcase *TestCase, r *reportStore) {
+func (e *executionState) NewTestCase(
+	ctx *context.RootContext,
+	testcase *TestCase,
+	r *reportStore,
+	d *dispatcher.Dispatcher,
+) {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 	e.testcase = testcase
-	e.curCtx = newContext(ctx, testcase, r)
+	e.curCtx = newContext(ctx, testcase, r, d)
 }
 
 func (e *executionState) CurCtx() *Context {
@@ -94,7 +100,7 @@ MainLoop:
 
 		// Setup
 		testcaseLogger.Debug("Setting up testcase")
-		srv.executionState.NewTestCase(srv.ctx, testcase, srv.reportStore)
+		srv.executionState.NewTestCase(srv.ctx, testcase, srv.reportStore, srv.dispatcher)
 		err := testcase.setup(srv.executionState.CurCtx())
 		if err != nil {
 			testcaseLogger.With(log.LogParams{"error": err}).Error("Error setting up testcase")
@@ -120,12 +126,13 @@ MainLoop:
 		ctx := srv.executionState.CurCtx()
 		if testcase.aborted {
 			testcaseLogger.Info("Testcase was aborted")
+		}
+		testcaseLogger.Info("Checking assertion")
+		ok := testcase.assert(ctx)
+		if !ok {
+			testcaseLogger.Info("Testcase failed")
 		} else {
-			testcaseLogger.Info("Checking assertion")
-			ok := testcase.assert(ctx)
-			if !ok {
-				testcaseLogger.Info("Testcase failed")
-			}
+			testcaseLogger.Info("Testcase succeeded")
 		}
 		// TODO: Figure out a way to cleanly clear the message pool
 		// Reset the servers and flush the queues after waiting for some time
@@ -183,11 +190,12 @@ func (srv *TestingServer) pollMessages() {
 			testcase := srv.executionState.CurTestCase()
 			// Gathering metrics
 			srv.reportStore.Log(map[string]string{
-				"testcase": testcase.Name,
-				"type":     "message",
-				"from":     string(m.From),
-				"to":       string(m.To),
-				"message":  m.Repr,
+				"testcase":   testcase.Name,
+				"type":       "message",
+				"from":       string(m.From),
+				"to":         string(m.To),
+				"message":    m.Repr,
+				"message_id": m.ID,
 			})
 		case <-srv.QuitCh():
 			return

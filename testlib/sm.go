@@ -201,6 +201,7 @@ func (s *StateMachine) step(e *types.Event, c *Context) {
 				s.run.Transition(next)
 				c.Vars.Set("curState", to)
 			}
+			break
 		}
 	}
 }
